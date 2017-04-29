@@ -7,11 +7,12 @@ const XMLHttpRequest = require("xmlhttprequest").XMLHttpRequest; //Required to c
 const fs = require("fs");//Required to write to disk
 const Datastore = require('nedb');//Required for the database
 
-//Primary constructors
+//Global variable and object setup
 const bot = new Discord.Client();
 const botConfig = require("./config/botConfig.json");
 const botPrefix = botConfig.prefix;
 const refreshRate = botConfig.refreshRate;
+const dayInMilliSec = 86400000;
 const endNotificationDelay = botConfig.endNotificationDelay;
 const replyTimeLimit = botConfig.replyTimeLimit;
 var collector = null;
@@ -52,15 +53,33 @@ bot.on("ready", () => {
 
 bot.on("message", message => {
   if (message.author.bot) return; //"We don't serve bots 'round here"
-  if (message.channel.type === "dm") handleDM(message); return; //Takes care of DMs
+
+  var commandList = ["getserverid", "getchannelid", "commands"];
+  if (message.channel.type === "dm") {
+    handleDM(message, commandList); return; //Takes care of DMs
+  }
   if (!message.content.startsWith(botPrefix)) return; //Only look for prefix messages
 
   let command = message.content.split(" ")[0];
-  command = command.slice(botPrefix.length);
+  command = command.slice(botPrefix.length).toLowerCase();
   let args = message.content.split(" ").slice(1);
 
   //TODO add regular chat commands
+  if (command == commandList[0]) {//GetServerID
+    message.reply("The ID for this server is: " + message.channel.guild.id); return;
+  } else
 
+  if (command == commandList[1]) {
+    message.reply("The ID for this channel is: " + message.channel.id); return;
+  } else
+
+  if (command === commandList[2]) {//Commands
+    var codeCommands = [];
+    commandList.forEach(function (item, index) {
+      codeCommands.push(" `" + botPrefix + item + "`");
+    });
+    message.reply("Here's a list of commands currently available: " + codeCommands);
+  }
 
 });//End of bot.on(Message)
 
@@ -100,30 +119,71 @@ setInterval(() => {
     });//End of db.findOne
   }//End of i loop
 }, refreshRate);
+
+setInterval(() => {//DB compact and file cleanup.
+  dbMaintAndFileCleanup();
+}, refreshRate);//TODO change to dayInMilliSec
+
 //Functions for db
-function handleDM(message){
+function handleDM(message, chatCommandList){
   let command = message.content.split(" ")[0].toLowerCase();
   let args = message.content.split(" ").slice(1);
 
+  var commandList = ["help", "hi", "commands", "addstreamer", "removestreamer",
+                     "setbotchannel", "quickadd", "getserverid", "getchannelid"];
 
-  if (command === "help") {
-    message.reply("Hello! To add a streamer's notifications to your server, reply with:\n" +
-                  "`addstreamer PicartoUsername`\n" +
-                  "To remove a streamer's notifications, reply with:\n" +
-                  "`removestreamer PicartoUsername`");
+
+  if (command === commandList[0] || command === commandList[1]) {
+    message.reply("Hello! Reply with: " +
+                  "`addstreamer` " +
+                  "to get started adding a streamer, or: " +
+                  "`removestreamer` " +
+                  "to remove one. For more commands, type `commands`!");
   } else
 
-  if (command === "addstreamer") {
+  if (command === commandList[2]) {//Commands
+    var codeCommands = [];
+    commandList.forEach(function (item, index) {
+      codeCommands.push(" `" + item + "`");
+    });
+    message.reply("Here's a list of commands currently available:" + codeCommands);
+  } else
+
+  if (command === commandList[3]) {//addstreamer
     getStreamerName(message, "add");
   } else
 
-  if (command === "removestreamer"){
+  if (command === commandList[4]){//removestreamer
     getStreamerName(message, "remove");
   } else
 
-  if (command === "setbotchannel") {
+  if (command === commandList[5]) {//setbotchannel
     getServerID(message, null, "setbotchannel");
-  }
+  } else
+
+  if (command === commandList[6]) {//quickAdd
+    if(args.length != 2) {
+      message.reply("Format for quickadd is: `quickadd`  `Username`  `ServerID`")
+    } else {
+      quickAdd(message, args[0], args[1]);//args[0] is Username,
+    }
+  } else
+
+  if (command === commandList[7]){//server ID
+    let cmd = "`" + botPrefix + chatCommandList[0] + "`";
+    message.reply("You can get your Discord Server ID by enabling \"Developer Mode\" under your Appearnce" +
+                  " options in Discord then right-clicking on the server. Or, you can type " +
+                  cmd + " into a channel on the server" +
+                  " (please ensure the bot can send messages to that channel!).");
+  } else
+
+  if (command === commandList[8]){//channel ID
+    let cmd = "`" + botPrefix + chatCommandList[1] + "`";
+    message.reply("You can get channel ID by enabling \"Developer Mode\" under your Appearnce" +
+                  " options in Discord then right-clicking on the channel name. Or, you can type " +
+                  cmd + " into that channel." +
+                  " (please ensure the bot can send messages to that channel!).");
+  } else
 
   if (collector === null || collector.ended){//don't respond if the collector is running
     //console.log("Collector: " + collector);
@@ -294,6 +354,14 @@ function setBotChannel (message, serverID, botChanID) {
   });//End of db.findOne
 }//End of setBotChannel
 
+function quickAdd (message, streamer, serverID) {
+  if(checkIfStreamExists(streamer)){
+    verifyServer(message, streamer, serverID, "add");
+  } else {
+    message.reply("That streamer cannot be found on Picarto.tv\nPlease use the Channel Name from Picarto.tv");
+  }
+}//End of quickAdd
+
 function checkIfStreamIsOnline (streamerName) {
   var request = new XMLHttpRequest();
   try {
@@ -386,3 +454,20 @@ function streamOffline  (serverID, botChanID, streamerObject) {
     });//End of db.update
   }
 }//End of streamOffline
+
+function dbMaintAndFileCleanup() {//TODO test db.persistence
+  //db.persistence.compactDatafile();
+  fs.readdir("./", function (err, files){
+    files.forEach(function (item, index) {
+      if(item.startsWith(".node-xmlhttprequest-sync")){
+        if(Date.now() - fs.lstatSync("./"+item).birthtime > 300000){
+          fs.unlink("./"+item, (err) => {
+            if(err) {
+              console.log(err);
+            }
+          });
+        }
+      }
+    });
+  });
+}//dbMaintAndFileCleanup
