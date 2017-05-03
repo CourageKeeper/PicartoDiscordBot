@@ -129,7 +129,8 @@ function handleDM(message, chatCommandList){
   let args = message.content.split(" ").slice(1);
 
   var commandList = ["help", "hi", "commands", "addstreamer", "removestreamer",
-                     "setbotchannel", "quickadd", "quickremove", "getserverid", "getchannelid", "configure", "configurestreamer"];
+                     "setbotchannel", "quickadd", "quickremove", "getserverid",
+                     "getchannelid", "configure", "configurestreamer", "liststreamers"];
 
 
   if (command === commandList[0] || command === commandList[1]) {
@@ -203,6 +204,10 @@ function handleDM(message, chatCommandList){
     getStreamerName(message, "config");
   } else
 
+  if (command == commandList[12]){//List all streamers on a given server
+    getServerID(message, null, "list");
+  } else
+
   if (collector === null || collector.ended){//don't respond if the collector is running
     message.reply("Type `help` to see basic usage or `commands` to see a full list.");
   }
@@ -266,7 +271,8 @@ function verifyServer(message, streamer, serverID, action){
       if (action === "add") addStreamerToDB (message, streamer, serverID); else
       if (action === "remove") removeStreamerFromDB (message, streamer, serverID); else
       if (action === "setbotchannel") getBotChannel(message, serverID); else
-      if (action == "config") getConfigType(message, streamer, serverID, 0);
+      if (action === "config") getConfigType(message, streamer, serverID, 0); else
+      if (action === "list") listStreamers(message, serverID);
     } else {
       message.reply("Only users with management permissions can configure this service.");
     }
@@ -679,6 +685,17 @@ function resetIntroOutro (message, serverID, streamerObject) {
     });//End of db.update
   });//End of db.update
 }//End of setIntro
+
+function listStreamers (message, serverID) {
+  db.findOne({_id : serverID}, function checkForDocument (err, foundDoc){
+    var arrayOfStreamers = foundDoc.streamers.slice();
+    var names = [];
+    for(o = 0; o < arrayOfStreamers.length; o++){//Loops through to find the streamer who's name matches ours
+      names.push(" " + arrayOfStreamers[o].name);
+    }
+    message.reply("Here are all the streamers setup on " + bot.guilds.get(serverID).name + ": " + names);
+  });
+}//End of listStreamers
 
 function collectResponse (message, multiplier, callback) {
   collector = message.channel.createCollector(
