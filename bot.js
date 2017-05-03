@@ -142,7 +142,7 @@ function handleDM(message, chatCommandList){
                   "If you would like to change the channel that the bot sends messages to, use: " +
                   "`setBotChannel` (you will need a channel ID, help with that can be seen with `getChannelID`)\n" +
                   "The `configureStreamer` command will allow you to add custom announcement messages when a stream " +
-                  "comes online and when it goes offline.\n"
+                  "comes online and when it goes offline.\n" +
                   "To see a list of all commands, type `commands`!");
   } else
 
