@@ -53,6 +53,15 @@ bot.on("ready", () => {
   console.log("Ready!");
 });//End of bot.on(Ready)
 
+/*
+* Automatically reconnect if the bot disconnects due to inactivity
+* Disconnect code courtesy https://github.com/Zamiell
+*/
+client.on('disconnect', function(erMsg, code) {
+    console.log('----- Bot disconnected from Discord with code ', code, ' for reason: ', erMsg, ' -----');
+    client.connect();
+});
+
 bot.on("message", message => {
   if (message.author.bot) return; //"We don't serve bots 'round here"
 
