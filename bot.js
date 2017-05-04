@@ -25,6 +25,8 @@ db = new Datastore({ filename: "./database/streamerStates.db", autoload: true })
 
 bot.login(botConfig.token);
 
+bot.on('unhandledRejection', console.error);
+
 bot.on("ready", () => {
   var serverIDArray = bot.guilds.keyArray();
 
@@ -54,32 +56,38 @@ bot.on("ready", () => {
 bot.on("message", message => {
   if (message.author.bot) return; //"We don't serve bots 'round here"
 
-  var commandList = ["getserverid", "getchannelid", "commands"];
-  if (message.channel.type === "dm") {
-    handleDM(message, commandList); return; //Takes care of DMs
+  try {
+    var commandList = ["getserverid", "getchannelid", "commands"];
+    if (message.channel.type === "dm") {
+      handleDM(message, commandList); return; //Takes care of DMs
+    }
+    if (!message.content.startsWith(botPrefix)) return; //Only look for prefix messages
+    if (!message.channel.permissionsFor(bot.user).hasPermissions([0x00000800])) return;//Return if we're not allowed to post to that channel
+
+    let command = message.content.split(" ")[0];
+    command = command.slice(botPrefix.length).toLowerCase();
+    let args = message.content.split(" ").slice(1);
+
+    if (command == commandList[0]) {//GetServerID
+      message.reply("The ID for this server is: " + message.channel.guild.id); return;
+    } else
+
+    if (command == commandList[1]) {
+      message.reply("The ID for this channel is: " + message.channel.id); return;
+    } else
+
+    if (command === commandList[2]) {//Commands
+      var codeCommands = [];
+      commandList.forEach(function (item, index) {
+        codeCommands.push(" `" + botPrefix + item + "`");
+      });
+      message.reply("Here's a list of commands currently available: " + codeCommands);
+    }
   }
-  if (!message.content.startsWith(botPrefix)) return; //Only look for prefix messages
-
-  let command = message.content.split(" ")[0];
-  command = command.slice(botPrefix.length).toLowerCase();
-  let args = message.content.split(" ").slice(1);
-
-  if (command == commandList[0]) {//GetServerID
-    message.reply("The ID for this server is: " + message.channel.guild.id); return;
-  } else
-
-  if (command == commandList[1]) {
-    message.reply("The ID for this channel is: " + message.channel.id); return;
-  } else
-
-  if (command === commandList[2]) {//Commands
-    var codeCommands = [];
-    commandList.forEach(function (item, index) {
-      codeCommands.push(" `" + botPrefix + item + "`");
-    });
-    message.reply("Here's a list of commands currently available: " + codeCommands);
+  catch (err) {
+    //console.log("Unable to respond to message: " + message.toString() + " for: " + message.author.username);
+    //if (message.channel.type != "dm") console.log("On channel: " + message.channel.name);
   }
-
 });//End of bot.on(Message)
 
 setInterval(() => {
@@ -216,45 +224,55 @@ function handleDM(message, chatCommandList){
 
 function getStreamerName(message, action){
   message.reply("Please enter the Picarto username of the streamer.");
-  collector = message.channel.createCollector(
-    message => !message.author.bot,
-    { time: replyTimeLimit, max: 1 }
-  );
+  try {
+    collector = message.channel.createCollector(
+      message => !message.author.bot,
+      { time: replyTimeLimit, max: 1 }
+    );
 
-  collector.on('end', (collected, reason) => {
-    if (reason === "time") {
-      message.reply("The time limit to reply has expired.");
-    } else
-    if (reason === "limit" && action === "add") {
-      if(checkIfStreamExists(collected.first().toString())) {
+    collector.on('end', (collected, reason) => {
+      if (reason === "time") {
+        message.reply("The time limit to reply has expired.");
+      } else
+      if (reason === "limit" && action === "add") {
+        if(checkIfStreamExists(collected.first().toString())) {
+          getServerID(message, collected.first().toString(), action);
+        }
+        else {
+          message.reply("That streamer cannot be found on Picarto.tv\nPlease use the Channel Name from Picarto.tv");
+        }
+      } else
+      if (reason === "limit") {
         getServerID(message, collected.first().toString(), action);
       }
-      else {
-        message.reply("That streamer cannot be found on Picarto.tv\nPlease use the Channel Name from Picarto.tv");
-      }
-    } else
-    if (reason === "limit") {
-      getServerID(message, collected.first().toString(), action);
-    }
-    //message.reply("Adding: " + collected.first());
-    //message.reply("Reason ended: " + reason);
-  });
+      //message.reply("Adding: " + collected.first());
+      //message.reply("Reason ended: " + reason);
+    });
+  }
+  catch (err) {
+    console.log("Error in getStreamerName: " + message.toString() + "\n" + err);
+  }
 }//End of getStreamerName
 
 function getServerID(message, streamer, action){
   message.reply("Please enter your Discord ServerID.");
-  collector = message.channel.createCollector(
-    message => !message.author.bot,
-    { time: replyTimeLimit, max: 1 }
-  );
-  collector.on('end', (collected, reason) => {
-    if (reason === "time") {
-      message.reply("The time limit to reply has expired.");
-    } else
-    if (reason === "limit") {
-      verifyServer(message, streamer, collected.first().toString(), action);
-    }
-  });
+  try {
+    collector = message.channel.createCollector(
+      message => !message.author.bot,
+      { time: replyTimeLimit, max: 1 }
+    );
+    collector.on('end', (collected, reason) => {
+      if (reason === "time") {
+        message.reply("The time limit to reply has expired.");
+      } else
+      if (reason === "limit") {
+        verifyServer(message, streamer, collected.first().toString(), action);
+      }
+    });
+  }
+  catch (err) {
+    console.log("Error in getServerID for message: " + message.toString() + "\n" + err);
+  }
 }//End of getServerID
 
 function verifyServer(message, streamer, serverID, action){
@@ -343,23 +361,28 @@ function checkIfStreamExists (streamer) {
 
 function getBotChannel (message, serverID) {
   message.reply("Please enter the channel ID of the channel you wish the bot to use.");
-  collector = message.channel.createCollector(
-    message => !message.author.bot,
-    { time: replyTimeLimit, max: 1 }
-  );
-  collector.on('end', (collected, reason) => {
-    if (reason === "time") {
-      message.reply("The time limit to reply has expired.");
-    } else
-    if (reason === "limit") {
-      let botChanID = collected.first().toString();
-      if (!bot.guilds.get(serverID).channels.has(botChanID)){
-        message.reply("There is not a channel with the ID " + botChanID + " on the server " + bot.guilds.get(serverID).name);
-      } else {
-        setBotChannel(message, serverID, botChanID);
+  try {
+    collector = message.channel.createCollector(
+      message => !message.author.bot,
+      { time: replyTimeLimit, max: 1 }
+    );
+    collector.on('end', (collected, reason) => {
+      if (reason === "time") {
+        message.reply("The time limit to reply has expired.");
+      } else
+      if (reason === "limit") {
+        let botChanID = collected.first().toString();
+        if (!bot.guilds.get(serverID).channels.has(botChanID)){
+          message.reply("There is not a channel with the ID " + botChanID + " on the server " + bot.guilds.get(serverID).name);
+        } else {
+          setBotChannel(message, serverID, botChanID);
+        }
       }
-    }
-  });
+    });
+  }
+  catch (err) {
+    console.log("Error in getBotChannel for message: " + message.toString() + "\n" + err);
+  }
 }//End of getBotChannel
 
 function setBotChannel (message, serverID, botChanID) {
@@ -440,12 +463,29 @@ function streamOnline (serverID, botChanID, streamerObject) {
                                                          lastOnline : date,
                                                          intro : introString,
                                                          outro : outroString}}}, {}, function (err, numreplaced) {
-      if (introString == null) {
-        bot.guilds.get(serverID).channels.get(botChanID).sendMessage("@here " + streamer +
-                                  " is streaming! Join us here: " + streamLink + streamer);
-      } else {
-        bot.guilds.get(serverID).channels.get(botChanID).sendMessage("@here " + introString +
-                                  " Join here: " + streamLink + streamer);
+      try {
+
+        if (introString == null) {
+          bot.guilds.get(serverID).channels.get(botChanID).sendMessage("@here " + streamer +
+                                    " is streaming! Join us here: " + streamLink + streamer).then(function () {
+                                         //console.log("Promise Resolved");
+                                    }).catch(function () {
+                                      console.log("Unable to send default online message to the channel: " +
+                                                  bot.guilds.get(serverID).channels.get(botChanID).name + " for: " + bot.guilds.get(serverID).name);
+                                    });
+        } else {
+          bot.guilds.get(serverID).channels.get(botChanID).sendMessage("@here " + introString +
+                                    " Join here: " + streamLink + streamer).then(function () {
+                                         //console.log("Promise Resolved");
+                                    }).catch(function () {
+                                      console.log("Unable to send a message to the channel: " +
+                                                  bot.guilds.get(serverID).channels.get(botChanID).name + " for: " + bot.guilds.get(serverID).name);
+                                    });
+        }
+      }
+      catch (err) {
+        //console.log("Unable to send a message to the channel: " +
+                    //bot.guilds.get(serverID).channels.get(botChanID).name + " for: " + bot.guilds.get(serverID).name);
       }
 
       });//End of db.update
@@ -486,12 +526,27 @@ function streamOffline  (serverID, botChanID, streamerObject) {
                                                              lastOnline : lastOnline,
                                                              intro : introString,
                                                              outro : outroString}}}, {}, function (err, numreplaced) {
-            if (outroString == null) {
-              bot.guilds.get(serverID).channels.get(botChanID).sendMessage(streamer + " has gone offline, thanks for watching!");
-            } else {
-              bot.guilds.get(serverID).channels.get(botChanID).sendMessage(streamer + " has gone offline. " + outroString);
+            try {
+              if (outroString == null) {
+                bot.guilds.get(serverID).channels.get(botChanID).sendMessage(streamer + " has gone offline, thanks for watching!").then(function () {
+                     //console.log("Promise Resolved");
+                }).catch(function () {
+                  console.log("Unable to send default offline message to the channel: " +
+                              bot.guilds.get(serverID).channels.get(botChanID).name + " for: " + bot.guilds.get(serverID).name);
+                });
+              } else {
+                bot.guilds.get(serverID).channels.get(botChanID).sendMessage(streamer + " has gone offline. " + outroString).then(function () {
+                     //console.log("Promise Resolved");
+                }).catch(function () {
+                  console.log("Unable to send a message to the channel: " +
+                              bot.guilds.get(serverID).channels.get(botChanID).name + " for: " + bot.guilds.get(serverID).name);
+                });
+              }
             }
-
+            catch (err) {
+              //console.log("Unable to send a message to the channel: " +
+                          //bot.guilds.get(serverID).channels.get(botChanID).name + " for: " + bot.guilds.get(serverID).name);
+            }
           });//End of db.update
         });//End of db.update
       }
@@ -549,28 +604,33 @@ function getConfigType (message, streamer, serverID, attempt) {
   message.reply("Please enter `intro` to add a custom announcement message, `outro` to add a custom" +
                 " goodbye message, or `both` to setup both. The command `reset` will set both back to the" +
                 " default message.");
-  collector = message.channel.createCollector(
-    message => !message.author.bot,
-    { time: replyTimeLimit*2, max: 1 }
-  );
-  collector.on('end', (collected, reason) => {
-    if (reason === "time") {
-      message.reply("The time limit to reply has expired.");
-    } else
-    if (reason === "limit") {
-      var options = ["intro", "outro", "both", "reset"];
-      if (options.includes(collected.first().toString().toLowerCase())) {
-        getConfigSettings(message, streamer, serverID, collected.first().toString().toLowerCase());
+  try {
+    collector = message.channel.createCollector(
+      message => !message.author.bot,
+      { time: replyTimeLimit*2, max: 1 }
+    );
+    collector.on('end', (collected, reason) => {
+      if (reason === "time") {
+        message.reply("The time limit to reply has expired.");
       } else
-      if (attempt > 0){
-        message.reply("The only valid options are `into`, `outro`, `both`, and `reset`, returning to start.")
-      } else {
-        message.reply("The only valid options are `into`, `outro`, `both` and `reset`");
-        getConfigType(message, streamer, serverID, 1);
-      }
+      if (reason === "limit") {
+        var options = ["intro", "outro", "both", "reset"];
+        if (options.includes(collected.first().toString().toLowerCase())) {
+          getConfigSettings(message, streamer, serverID, collected.first().toString().toLowerCase());
+        } else
+        if (attempt > 0){
+          message.reply("The only valid options are `into`, `outro`, `both`, and `reset`, returning to start.")
+        } else {
+          message.reply("The only valid options are `into`, `outro`, `both` and `reset`");
+          getConfigType(message, streamer, serverID, 1);
+        }
 
-    }
-  });
+      }
+    });
+  }
+  catch (err) {
+    console.log("Error in get configType of message: " + message.toString() + "\n" + err);
+  }
 }//End of getConfigType
 
 
@@ -698,16 +758,21 @@ function listStreamers (message, serverID) {
 }//End of listStreamers
 
 function collectResponse (message, multiplier, callback) {
-  collector = message.channel.createCollector(
-    message => !message.author.bot,
-    { time: replyTimeLimit*multiplier, max: 1 }
-  );
-  collector.on('end', (collected, reason) => {
-    if (reason === "time") {
-      return null;
-    } else
-    if (reason === "limit") {
-      callback(collected);
-    }
-  });
+  try {
+    collector = message.channel.createCollector(
+      message => !message.author.bot,
+      { time: replyTimeLimit*multiplier, max: 1 }
+    );
+    collector.on('end', (collected, reason) => {
+      if (reason === "time") {
+        return null;
+      } else
+      if (reason === "limit") {
+        callback(collected);
+      }
+    });
+  }
+  catch (err) {
+    console.log("Error in collectResponse function with message: " + message.toString() + "\n" + err);
+  }
 }//End of collectResponse
