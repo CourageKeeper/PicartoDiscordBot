@@ -10,7 +10,8 @@ const Datastore = require('nedb');//Required for the database
 
 //Global variable and object setup
 const bot = new Discord.Client();
-const botConfig = require("./config/botConfig.json");
+const curDir = __dirname;
+const botConfig = require(curDir + "/config/botConfig.json");
 const botPrefix = botConfig.prefix;
 const refreshRate = botConfig.refreshRate;
 const dayInMilliSec = 86400000;
@@ -20,7 +21,7 @@ var collector = null;
 const APILink = "https://api.picarto.tv/v1/channel/name/";
 const streamLink = "https://picarto.tv/";
 
-db = new Datastore({ filename: "./database/streamerStates.db", autoload: true });
+db = new Datastore({ filename: curDir + "/database/streamerStates.db", autoload: true });
 //TODO setup bot channel when bot is first joined to server
 
 bot.login(botConfig.token);
@@ -125,6 +126,9 @@ setInterval(() => {
           } else
           if (onlineStatus == null){
             console.log("Online status for " + arrayOfStreamers[o].name + " came back as null.");
+          } else
+          if (onlineStatus == 502) {
+            console.log("Picarto service is currently overloaded.");
           }
         }//End of o loop
       }
@@ -430,10 +434,9 @@ function checkIfStreamIsOnline (streamerName) {
     if (request.status == 200){
       var reply = JSON.parse(request.responseText);
       return reply.online;
-    }
-    else {
-      console.log(request.status);
-      return null;
+    } else
+    if (request.status == 502){//Service is overloaded
+      return 502;
     }
   }
   catch (err) {
