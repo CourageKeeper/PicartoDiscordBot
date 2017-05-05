@@ -53,13 +53,9 @@ bot.on("ready", () => {
   console.log("Ready!");
 });//End of bot.on(Ready)
 
-/*
-* Automatically reconnect if the bot disconnects due to inactivity
-* Disconnect code courtesy https://github.com/Zamiell
-*/
-bot.on('disconnect', function(erMsg, code) {
-    console.log('----- Bot disconnected from Discord with code ', code, ' for reason: ', erMsg, ' -----');
-    bot.connect();
+bot.on("disconnect", function(error, code) {
+    console.log("----- Bot disconnected from Discord with code ", code, " for reason: ", error, " -----");
+    bot.login(botConfig.token);
 });
 
 bot.on("message", message => {
@@ -148,7 +144,6 @@ function handleDM(message, chatCommandList){
   var commandList = ["help", "hi", "commands", "addstreamer", "removestreamer",
                      "setbotchannel", "quickadd", "quickremove", "getserverid",
                      "getchannelid", "configure", "configurestreamer", "liststreamers"];
-
 
   if (command === commandList[0] || command === commandList[1]) {
     message.reply("Hello! Reply with: " +
