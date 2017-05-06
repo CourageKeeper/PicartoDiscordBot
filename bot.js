@@ -15,7 +15,7 @@ const botConfig = require(curDir + "/config/botConfig.json");
 const botPrefix = botConfig.prefix;
 const refreshRate = botConfig.refreshRate;
 const dayInMilliSec = 86400000;
-const compactRate = 1800000;//30 minutes
+const compactRate = 10800000;//3 hours
 const endNotificationDelay = botConfig.endNotificationDelay;
 const replyTimeLimit = botConfig.replyTimeLimit;
 var collector = null;
@@ -35,22 +35,7 @@ bot.on("ready", () => {
   for (i = 0; i < serverIDArray.length; i++){
     var currentID = serverIDArray[i];
     var botChannelDefault = bot.guilds.get(currentID).defaultChannel.id;
-    db.findOne({_id : currentID}, function checkForDocument (err, newDoc){
-      if(err){
-        console.log("Error finding document: " + err);
-      }
-      else if (newDoc === null) {//create document
-        var doc = { _id : currentID,
-                    botChannelID : botChannelDefault,
-                    streamers : []
-                  };
-        db.insert(doc);
-        console.log("Document for ID: " + currentID + " created.");
-      }
-      else {
-        console.log("Document for ID: " + currentID + " exists.");
-      }
-    });//End of db.findOne
+    initializeDB (currentID, botChannelDefault);
   }//End of for loop
   console.log("Ready!");
 });//End of bot.on(Ready)
@@ -102,44 +87,13 @@ setInterval(() => {
 
   for(i = 0; i < serverIDArray.length; i++){
     var currentID = serverIDArray[i];
-    db.findOne({_id : currentID}, function checkForDocument (err, foundDoc){
-      if(err){
-        console.log("Error finding document: " + err);
-      }
-      else {
-        var arrayOfStreamers = foundDoc.streamers.slice();
-        var botChannelID = foundDoc.botChannelID.toString();
-
-        for(o = 0; o < arrayOfStreamers.length; o++){
-
-          let onlineStatus = checkIfStreamIsOnline(arrayOfStreamers[o].name);
-          let cloned = Object.assign({}, arrayOfStreamers[o]);
-
-          if (onlineStatus == true) {
-
-            streamOnline(currentID, botChannelID, cloned);
-
-          } else
-          if (onlineStatus == false) {
-
-            streamOffline(currentID, botChannelID, cloned);
-
-          } else
-          if (onlineStatus == null){
-            console.log("Online status for " + arrayOfStreamers[o].name + " came back as null.");
-          } else
-          if (onlineStatus == 502) {
-            console.log("Picarto service is currently overloaded.");
-          }
-        }//End of o loop
-      }
-    });//End of db.findOne
+    checkStates(currentID);
   }//End of i loop
 }, refreshRate);
 
 setInterval(() => {//DB compact and file cleanup.
   dbMaintAndFileCleanup();
-}, compactRate);//Run cleanup every 30 minutes
+}, compactRate);//Run cleanup
 
 function replyToMessage (message, stringReply) {
   message.reply(stringReply)
@@ -236,6 +190,63 @@ function handleDM(message, chatCommandList){
   }
 
 }//End of HandleDM
+
+function initializeDB (serverID, botChannelID) {
+  db.findOne({_id : serverID}, function checkForDocument (err, newDoc){
+
+    if(err){
+      console.log("Error finding document: " + err);
+    }
+    else if (newDoc === null) {//create document
+      var doc = { _id : serverID,
+                  botChannelID : botChannelID,
+                  streamers : []
+                };
+      db.insert(doc);
+      console.log("Document for ID: " + serverID + " created.");
+    }
+    else {
+      console.log("Document for ID: " + serverID + " exists.");
+    }
+  });//End of db.findOne
+}//End of initializeDB
+
+function checkStates (serverID) {
+  db.findOne({_id : serverID}, function checkForDocument (err, foundDoc){
+    if(err){
+      console.log("Error finding document: " + err);
+    } else
+    if (foundDoc.streamers.length == 0) {
+      //No streamers for this server, don't do anything
+    } else {
+        var arrayOfStreamers = foundDoc.streamers.slice();
+        var botChannelID = foundDoc.botChannelID.toString();
+
+        for(o = 0; o < arrayOfStreamers.length; o++){
+
+          let onlineStatus = checkIfStreamIsOnline(arrayOfStreamers[o].name);
+          let cloned = Object.assign({}, arrayOfStreamers[o]);
+
+          if (onlineStatus == true) {
+
+            streamOnline(serverID, botChannelID, cloned);
+
+          } else
+          if (onlineStatus == false) {
+
+            streamOffline(serverID, botChannelID, cloned);
+
+          } else
+          if (onlineStatus == null){
+            console.log("Online status for " + arrayOfStreamers[o].name + " came back as null.");
+          } else
+          if (onlineStatus == 502) {
+            console.log("Picarto service is currently overloaded.");
+          }
+        }//End of o loop
+      }
+  });//End of db.findOne
+}
 
 function getStreamerName(message, action){
   replyToMessage(message, "Please enter the Picarto username of the streamer.");
@@ -458,7 +469,8 @@ function streamOnline (serverID, botChanID, streamerObject) {
   let introString = streamerObject.intro;
   let outroString = streamerObject.outro;
 
-  if (currentState === true) {//Update lastOnline
+  if (currentState === true) {//No longer doing anything
+    /*
     var date = Date.now();
     db.update({_id : serverID}, {$pull : {streamers : {name : streamer}}}, {}, function (err, numreplaced) {
       db.update({_id : serverID}, {$push : {streamers : {name : streamer,
@@ -468,6 +480,7 @@ function streamOnline (serverID, botChanID, streamerObject) {
                                                          outro : outroString}}}, {}, function (err, numreplaced) {
       });//End of db.update
     });//End of db.update
+    */
   } else
   if (currentState === false) {//Announce that we have gone live!
     var date = Date.now();
@@ -521,11 +534,58 @@ function streamOnline (serverID, botChanID, streamerObject) {
 function streamOffline  (serverID, botChanID, streamerObject) {
   let streamer = streamerObject.name;
   let currentState = streamerObject.onlineState;
-  let lastOnline = streamerObject.lastOnline;
   let introString = streamerObject.intro;
   let outroString = streamerObject.outro;
 
-  if (currentState === true) {//Going offline, notify after endNotificationDelay amount of time!
+  if (currentState === true) {//If going from online to offline, update status but wait on timeout before notifying just in case they come back online
+    db.update({_id : serverID}, {$pull : {streamers : {name : streamer}}}, {}, function (err, numreplaced) {
+      db.update({_id : serverID}, {$push : {streamers : {name : streamer,
+                                                         onlineState : false,
+                                                         lastOnline : Date.now(),
+                                                         intro : introString,
+                                                         outro : outroString}}}, {}, function (err, numreplaced) {
+      });//End of db.update
+    });//End of db.update
+
+    setTimeout(() => {// We want to wait a certain amount of time to verify the stream is still offline.
+      var onlineStatus = checkIfStreamIsOnline(streamer);
+      if (onlineStatus === true) {//Stream has come back online in time, update with no notification
+          db.update({_id : serverID}, {$pull : {streamers : {name : streamer}}}, {}, function (err, numreplaced) {
+            db.update({_id : serverID}, {$push : {streamers : {name : streamer,
+                                                               onlineState : true,
+                                                               lastOnline : Date.now(),
+                                                               intro : introString,
+                                                               outro : outroString}}}, {}, function (err, numreplaced) {
+            });//End of db.update
+          });//End of db.update
+      } else
+      if (onlineStatus == false) {//Stream is still offline, give notification
+            try {
+              if (outroString == null) {
+                bot.guilds.get(serverID).channels.get(botChanID).sendMessage(streamer + " has gone offline, thanks for watching!").then(function () {
+                     //console.log("Promise Resolved");
+                }).catch(function () {
+                  console.log("Unable to send default offline message to the channel: " +
+                              bot.guilds.get(serverID).channels.get(botChanID).name + " for: " + bot.guilds.get(serverID).name);
+                });
+              } else {
+                bot.guilds.get(serverID).channels.get(botChanID).sendMessage(streamer + " has gone offline. " + outroString).then(function () {
+                     //console.log("Promise Resolved");
+                }).catch(function () {
+                  console.log("Unable to send a message to the channel: " +
+                              bot.guilds.get(serverID).channels.get(botChanID).name + " for: " + bot.guilds.get(serverID).name);
+                });
+              }
+            }
+            catch (err) {
+              //console.log("Unable to send a message to the channel: " +
+                          //bot.guilds.get(serverID).channels.get(botChanID).name + " for: " + bot.guilds.get(serverID).name);
+            }
+      } else
+      if (onlineStatus == 502 || onlineStatus == null);//Do nothing for these errors.
+    }, endNotificationDelay);
+
+    /*
     db.findOne({_id : serverID}, function (err, foundDoc){
       var arrayOfStreamers = foundDoc.streamers.slice();
       var currentTime = Date.now();
@@ -566,6 +626,8 @@ function streamOffline  (serverID, botChanID, streamerObject) {
       }
 
     });
+
+    */
   } else
 
   if (currentState === false) {//Still offline, do nothing
