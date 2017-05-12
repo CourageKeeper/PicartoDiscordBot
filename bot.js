@@ -41,7 +41,7 @@ bot.on("ready", () => {
 });//End of bot.on(Ready)
 
 bot.on("disconnect", function(error, code) {
-    console.log("----- Bot disconnected from Discord with code ", code, " for reason: ", error, " -----");
+    //console.log("----- Bot disconnected from Discord with code ", code, " for reason: ", error, " -----");
     bot.login(botConfig.token);
 });
 
@@ -585,49 +585,6 @@ function streamOffline  (serverID, botChanID, streamerObject) {
       if (onlineStatus == 502 || onlineStatus == null);//Do nothing for these errors.
     }, endNotificationDelay);
 
-    /*
-    db.findOne({_id : serverID}, function (err, foundDoc){
-      var arrayOfStreamers = foundDoc.streamers.slice();
-      var currentTime = Date.now();
-
-      if (currentTime - lastOnline < endNotificationDelay) {
-        //Do nothing, still waiting
-      } else
-      if (currentTime - lastOnline >= endNotificationDelay) {//We have been offline for a minute
-        db.update({_id : serverID}, {$pull : {streamers : {name : streamer}}}, {}, function (err, numreplaced) {
-          db.update({_id : serverID}, {$push : {streamers : {name : streamer,
-                                                             onlineState : false,
-                                                             lastOnline : lastOnline,
-                                                             intro : introString,
-                                                             outro : outroString}}}, {}, function (err, numreplaced) {
-            try {
-              if (outroString == null) {
-                bot.guilds.get(serverID).channels.get(botChanID).sendMessage(streamer + " has gone offline, thanks for watching!").then(function () {
-                     //console.log("Promise Resolved");
-                }).catch(function () {
-                  console.log("Unable to send default offline message to the channel: " +
-                              bot.guilds.get(serverID).channels.get(botChanID).name + " for: " + bot.guilds.get(serverID).name);
-                });
-              } else {
-                bot.guilds.get(serverID).channels.get(botChanID).sendMessage(streamer + " has gone offline. " + outroString).then(function () {
-                     //console.log("Promise Resolved");
-                }).catch(function () {
-                  console.log("Unable to send a message to the channel: " +
-                              bot.guilds.get(serverID).channels.get(botChanID).name + " for: " + bot.guilds.get(serverID).name);
-                });
-              }
-            }
-            catch (err) {
-              //console.log("Unable to send a message to the channel: " +
-                          //bot.guilds.get(serverID).channels.get(botChanID).name + " for: " + bot.guilds.get(serverID).name);
-            }
-          });//End of db.update
-        });//End of db.update
-      }
-
-    });
-
-    */
   } else
 
   if (currentState === false) {//Still offline, do nothing
