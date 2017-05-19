@@ -16,19 +16,28 @@ const botPrefix = botConfig.prefix;
 const refreshRate = botConfig.refreshRate;
 const dayInMilliSec = 86400000;
 const compactRate = 10800000;//3 hours
+const retryRate = 10000;
 const endNotificationDelay = botConfig.endNotificationDelay;
 const replyTimeLimit = botConfig.replyTimeLimit;
 var collector = null;
+var retryAttempt = 0;
+var retryTimeout = null;
 const APILink = "https://api.picarto.tv/v1/online?adult=true&gaming=true&categories=";
 const streamLink = "https://picarto.tv/";
-
 db = new Datastore({ filename: curDir + "/database/streamerStates.db", autoload: true });
 
-bot.login(botConfig.token);
+botLogin(botConfig.token);
+
+function botLogin (token) {
+  bot.login(token)
+      .catch(() => {});
+}
 
 bot.on('unhandledRejection', console.error);
 
 bot.on("ready", () => {
+  retryAttempt = 0;//Reset attempts because we got in
+  retryTimeout = null;//Reset timeout because we got in
   var serverIDArray = bot.guilds.keyArray();
 
   for (i = 0; i < serverIDArray.length; i++){
@@ -37,15 +46,19 @@ bot.on("ready", () => {
     }
     catch (err) {
       console.log("Error readying server: " + serverIDArray[i]);
-      console.log(err);
+      //console.log(err);
     }
   }//End of for loop
   console.log("Ready!");
 });//End of bot.on(Ready)
 
-bot.on("disconnect", function(error, code) {
-    //console.log("----- Bot disconnected from Discord with code ", code, " for reason: ", error, " -----");
-    bot.login(botConfig.token);
+bot.on("disconnect", function(error) {
+    console.log("Bot disconnected from Discord for reason: ", error.reason);
+    if(retryAttempt > 0) console.log("Login failed, trying again in: " + retryRate * retryAttempt + "ms");
+    setTimeout(function(){
+      if(retryAttempt < 5) ++retryAttempt;
+      botLogin(botConfig.token);
+    }, retryRate * retryAttempt);
 });
 
 bot.on("message", message => {
