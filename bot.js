@@ -20,8 +20,7 @@ const retryRate = 10000;
 const endNotificationDelay = botConfig.endNotificationDelay;
 const replyTimeLimit = botConfig.replyTimeLimit;
 var collector = null;
-var retryAttempt = 0;
-var retryTimeout = null;
+//var retryAttempt = 0;
 const APILink = "https://api.picarto.tv/v1/online?adult=true&gaming=true&categories=";
 const streamLink = "https://picarto.tv/";
 db = new Datastore({ filename: curDir + "/database/streamerStates.db", autoload: true });
@@ -36,8 +35,7 @@ function botLogin (token) {
 bot.on('unhandledRejection', console.error);
 
 bot.on("ready", () => {
-  retryAttempt = 0;//Reset attempts because we got in
-  retryTimeout = null;//Reset timeout because we got in
+  //retryAttempt = 0;//Reset attempts because we got in
   var serverIDArray = bot.guilds.keyArray();
 
   for (i = 0; i < serverIDArray.length; i++){
@@ -54,11 +52,14 @@ bot.on("ready", () => {
 
 bot.on("disconnect", function(error) {
     console.log("Bot disconnected from Discord for reason: ", error.reason);
+    /*
     if(retryAttempt > 0) console.log("Login failed, trying again in: " + retryRate * retryAttempt + "ms");
     setTimeout(function(){
       if(retryAttempt < 5) ++retryAttempt;
       botLogin(botConfig.token);
     }, retryRate * retryAttempt);
+
+    */
 });
 
 bot.on("message", message => {
