@@ -420,7 +420,7 @@ function quickRemove (message, streamer, serverID){
 function checkIfStreamIsOnline (streamerName) {
   var request = new XMLHttpRequest();
   try {
-    request.open("GET", APILink + streamerName, false);
+    request.open("GET", "https://api.picarto.tv/v1/channel/name/" + streamerName, false);
     request.send();
     if (request.status == 200){
       var reply = JSON.parse(request.responseText);
