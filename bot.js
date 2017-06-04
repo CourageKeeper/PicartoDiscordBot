@@ -798,7 +798,7 @@ function compareStates (serverID, currentlyOnlineArray) {
     if(err){
       console.log("Error finding document: " + err);
     } else
-    if (foundDoc.streamers.length > 0) {//Only do something if there is at least one streamer
+    if (foundDoc.streamers.length != null && foundDoc.streamers.length > 0) {//Only do something if there is at least one streamer
       var arrayOfStreamers = foundDoc.streamers.slice();
       var botChannelID = foundDoc.botChannelID.toString();
 
