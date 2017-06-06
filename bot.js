@@ -210,18 +210,22 @@ function initializeDB (serverID, botChannelID) {
       console.log("Error finding document: " + err);
     }
     else if (newDoc === null) {//create document
-      var doc = { _id : serverID,
-                  botChannelID : botChannelID,
-                  streamers : []
-                };
-      db.insert(doc);
-      console.log("Document for ID: " + serverID + " created.");
+      addNewDoc(serverID, botChannelID);
     }
     else {
       console.log("Document for ID: " + serverID + " exists.");
     }
   });//End of db.findOne
 }//End of initializeDB
+
+function addNewDoc (serverID, botChannelID) {
+  var doc = { _id : serverID,
+              botChannelID : botChannelID,
+              streamers : []
+            };
+  db.insert(doc);
+  console.log("Document for ID: " + serverID + " created.");
+}
 
 function getStreamerName(message, action){
   replyToMessage(message, "Please enter the Picarto username of the streamer.");
@@ -797,6 +801,9 @@ function compareStates (serverID, currentlyOnlineArray) {
   db.findOne({_id : serverID}, function checkForDocument (err, foundDoc){
     if(err){
       console.log("Error finding document: " + err);
+    } else
+    if (foundDoc == null) {//This implies that the server was added while the bot was running, and thus there is no DB file for the server
+      addNewDoc(serverID, bot.guilds.get(serverID).defaultChannel.id);
     } else
     if (foundDoc.streamers.length != null && foundDoc.streamers.length > 0) {//Only do something if there is at least one streamer
       var arrayOfStreamers = foundDoc.streamers.slice();
