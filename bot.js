@@ -29,10 +29,31 @@ botLogin(botConfig.token);
 
 function botLogin (token) {
   bot.login(token)
+      .then(() => {console.log("Logged in")}, () => {console.log("Failed to login")})
       .catch(() => {});
 }
 
-bot.on('unhandledRejection', console.error);
+//bot.on('unhandledRejection', console.error);
+bot.on('unhandledRejection', error => {
+  console.log("Unhandled Rejection code: " + error);//+ " Now crashing client..."
+  //killBot();
+  /*
+  bot.logOut(() => {
+    console.log("Logging out...");
+    setTimeout(botLogin, 10000, botConfig.token);
+  });
+    /*.then(() => {
+      //setTimeout(botLogin, 10000, botConfig.token);
+      console.log("Made it!")
+    }, () => {setTimeout(killBot, 10000)})
+    .catch(error => {
+      console.log("Error: " + error);
+    }); */
+});
+
+function killBot (){
+  bot.destroy();
+}
 
 bot.on("ready", () => {
   //retryAttempt = 0;//Reset attempts because we got in
@@ -100,6 +121,10 @@ bot.on("message", message => {
 });//End of bot.on(Message)
 
 setInterval(() => {
+  console.log(Date.now() + " Heatbeat: " + bot.ping);
+}, 60000 * 60);
+
+setInterval(() => {
   request(compareStates)
 }, refreshRate);
 
@@ -121,6 +146,10 @@ function handleDM(message, chatCommandList){
   var commandList = ["help", "hi", "commands", "addstreamer", "removestreamer",
                      "setbotchannel", "quickadd", "quickremove", "getserverid",
                      "getchannelid", "configure", "configurestreamer", "liststreamers"];
+
+  if (command === "breakme") {
+    bot.emit("unhandledRejection", 621);
+  }
 
   if (command === commandList[0] || command === commandList[1]) {
     replyToMessage(message, "Hello! Reply with: " +
@@ -457,7 +486,7 @@ function streamOnline (serverID, botChanID, streamerObject) {
       try {
 
         if (introString == null) {
-          bot.guilds.get(serverID).channels.get(botChanID).sendMessage("@here " + streamer +
+          bot.guilds.get(serverID).channels.get(botChanID).send("@here " + streamer +
                                     " is streaming! Join us here: " + streamLink + streamer).then(function () {
                                          //console.log("Promise Resolved");
                                     }).catch(function () {
@@ -465,7 +494,7 @@ function streamOnline (serverID, botChanID, streamerObject) {
                                                   bot.guilds.get(serverID).channels.get(botChanID).name + " for: " + bot.guilds.get(serverID).name);
                                     });
         } else {
-          bot.guilds.get(serverID).channels.get(botChanID).sendMessage("@here " + introString +
+          bot.guilds.get(serverID).channels.get(botChanID).send("@here " + introString +
                                     " Join here: " + streamLink + streamer).then(function () {
                                          //console.log("Promise Resolved");
                                     }).catch(function () {
@@ -526,14 +555,14 @@ function streamOffline  (serverID, botChanID, streamerObject) {
       if (onlineStatus == false) {//Stream is still offline, give notification
             try {
               if (outroString == null) {
-                bot.guilds.get(serverID).channels.get(botChanID).sendMessage(streamer + " has gone offline, thanks for watching!").then(function () {
+                bot.guilds.get(serverID).channels.get(botChanID).send(streamer + " has gone offline, thanks for watching!").then(function () {
                      //console.log("Promise Resolved");
                 }).catch(function () {
                   console.log("Unable to send default offline message to the channel: " +
                               bot.guilds.get(serverID).channels.get(botChanID).name + " for: " + bot.guilds.get(serverID).name);
                 });
               } else {
-                bot.guilds.get(serverID).channels.get(botChanID).sendMessage(streamer + " has gone offline. " + outroString).then(function () {
+                bot.guilds.get(serverID).channels.get(botChanID).send(streamer + " has gone offline. " + outroString).then(function () {
                      //console.log("Promise Resolved");
                 }).catch(function () {
                   console.log("Unable to send a message to the channel: " +
