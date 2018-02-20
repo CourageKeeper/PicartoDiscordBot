@@ -61,7 +61,9 @@ bot.on("ready", () => {
 
   for (i = 0; i < serverIDArray.length; i++){
     try {
-      initializeDB (serverIDArray[i], bot.guilds.get(serverIDArray[i]).defaultChannel.id);
+      //2018.2.19 update: defaultChannel is depreciated, changing to get first available channel
+      //initializeDB (serverIDArray[i], bot.guilds.get(serverIDArray[i]).defaultChannel.id);
+      initializeDB (serverIDArray[i], bot.guilds.get(serverIDArray[i]).channels.firstKey());
     }
     catch (err) {
       console.log("Error readying server: " + serverIDArray[i]);
@@ -317,7 +319,8 @@ function verifyServer(message, streamer, serverID, action){
     var perms = findPermissions(message, serverID);
 
     if (perms.admin || perms.guild || perms.channels || perms.messages){
-      replyToMessage(message, "Hello " + bot.guilds.get(serverID).members.get(message.author.id).nickname + "!");
+      //2018.2.19 update: Changed the .nickname to .displayName due to nickname not working when no nickname was set.
+      replyToMessage(message, "Hello " + bot.guilds.get(serverID).members.get(message.author.id).displayName + "!");
       if (action === "add") addStreamerToDB (message, streamer, serverID); else
       if (action === "remove") removeStreamerFromDB (message, streamer, serverID); else
       if (action === "setbotchannel") getBotChannel(message, serverID); else
@@ -406,6 +409,11 @@ function getBotChannel (message, serverID) {
         let botChanID = collected.first().toString();
         if (!bot.guilds.get(serverID).channels.has(botChanID)){
           replyToMessage(message, "There is not a channel with the ID " + botChanID + " on the server " + bot.guilds.get(serverID).name);
+        } else if (bot.guilds.get(serverID).channels.get(botChanID).type === "voice") {
+          replyToMessage(message, "I cannot post alerts to voice channels such as \"" + bot.guilds.get(serverID).channels.get(botChanID).name + "\"");
+        } else if (!bot.guilds.get(serverID).channels.get(botChanID).permissionsFor(bot.user).hasPermissions([0x00000800])) {
+          replyToMessage(message, "I do not have permission to send message to channel \"" +
+          bot.guilds.get(serverID).channels.get(botChanID).name + "\" on the server " + bot.guilds.get(serverID).name);
         } else {
           setBotChannel(message, serverID, botChanID);
         }
@@ -832,7 +840,8 @@ function compareStates (serverID, currentlyOnlineArray) {
       console.log("Error finding document: " + err);
     } else
     if (foundDoc == null) {//This implies that the server was added while the bot was running, and thus there is no DB file for the server
-      addNewDoc(serverID, bot.guilds.get(serverID).defaultChannel.id);
+      //2018.2.19 update: defaultChannel is depreciated, changing to get first available channel
+      addNewDoc(serverID, bot.guilds.get(serverID).channels.firstKey());
     } else
     if (foundDoc.streamers.length != null && foundDoc.streamers.length > 0) {//Only do something if there is at least one streamer
       var arrayOfStreamers = foundDoc.streamers.slice();
