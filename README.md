@@ -1,6 +1,3 @@
-5/6/18 Note! The bot has been experiencing some major issues today; a fix will be deployed once the cause is found. I apologize for the instability and inconsitency of the bot until then.
----
-
 README
 
 This is version 2 of the Picarto/Discord interface bot.
