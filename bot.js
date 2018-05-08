@@ -14,6 +14,7 @@ const curDir = __dirname;
 const botConfig = require(curDir + "/config/botConfig.json");
 const botPrefix = botConfig.prefix;
 const refreshRate = botConfig.refreshRate;
+const delayMultiplier = 5;
 const dayInMilliSec = 86400000;
 const compactRate = 10800000;//3 hours
 const retryRate = 10000;
@@ -71,6 +72,7 @@ bot.on("ready", () => {
     }
   }//End of for loop
   console.log("Ready!");
+  createTimeoutRequest();//Start the request 'loop'
 });//End of bot.on(Ready)
 
 bot.on("disconnect", function(error) {
@@ -122,13 +124,17 @@ bot.on("message", message => {
   }
 });//End of bot.on(Message)
 
-setInterval(() => {
-  console.log(Date.now() + " Heatbeat: " + bot.ping);
-}, 60000 * 60);
-
-setInterval(() => {
-  request(compareStates)
-}, refreshRate);
+function createTimeoutRequest (delay) {
+  if (delay) {//XMLHttpRequest failed, so we delay the next call
+    setTimeout(() => {
+      request(compareStates);
+    }, refreshRate * delayMultiplier);
+  } else {//No errors, call next loop as normal
+    setTimeout(() => {
+      request(compareStates);
+    }, refreshRate);
+  }
+}
 
 setInterval(() => {//DB compact and file cleanup.
   dbMaintAndFileCleanup();
@@ -499,7 +505,7 @@ function streamOnline (serverID, botChanID, streamerObject) {
                                          //console.log("Promise Resolved");
                                     }).catch(function () {
                                       console.log("Unable to send default online message to the channel: " +
-                                                  bot.guilds.get(serverID).channels.get(botChanID).name + " for: " + bot.guilds.get(serverID).name);
+                                                  bot.guilds.get(serverID).channels.get(botChanID).name + " for: " + bot.guilds.get(serverID).name + " (" + serverID + ")");
                                     });
         } else {
           bot.guilds.get(serverID).channels.get(botChanID).send("@here " + introString +
@@ -507,7 +513,7 @@ function streamOnline (serverID, botChanID, streamerObject) {
                                          //console.log("Promise Resolved");
                                     }).catch(function () {
                                       console.log("Unable to send a message to the channel: " +
-                                                  bot.guilds.get(serverID).channels.get(botChanID).name + " for: " + bot.guilds.get(serverID).name);
+                                                  bot.guilds.get(serverID).channels.get(botChanID).name + " for: " + bot.guilds.get(serverID).name + " (" + serverID + ")");
                                     });
         }
       }
@@ -567,14 +573,14 @@ function streamOffline  (serverID, botChanID, streamerObject) {
                      //console.log("Promise Resolved");
                 }).catch(function () {
                   console.log("Unable to send default offline message to the channel: " +
-                              bot.guilds.get(serverID).channels.get(botChanID).name + " for: " + bot.guilds.get(serverID).name);
+                              bot.guilds.get(serverID).channels.get(botChanID).name + " for: " + bot.guilds.get(serverID).name + " (" + serverID + ")");
                 });
               } else {
                 bot.guilds.get(serverID).channels.get(botChanID).send(streamer + " has gone offline. " + outroString).then(function () {
                      //console.log("Promise Resolved");
                 }).catch(function () {
                   console.log("Unable to send a message to the channel: " +
-                              bot.guilds.get(serverID).channels.get(botChanID).name + " for: " + bot.guilds.get(serverID).name);
+                              bot.guilds.get(serverID).channels.get(botChanID).name + " for: " + bot.guilds.get(serverID).name + " (" + serverID + ")");
                 });
               }
             }
@@ -812,21 +818,25 @@ function request (callback) {
   var request = new XMLHttpRequest();
   var serverIDArray = bot.guilds.keyArray();
   try {
+    request.onloadend = function () {
+      if (request.status == 200){
+        createTimeoutRequest();
+        var reply = JSON.parse(request.responseText);
+        var arrayOfNames = [];
+        for(var i = 0; i < reply.length; i++){
+          arrayOfNames.push(reply[i].name);
+        }
+
+        for(var x = 0; x < serverIDArray.length; x++) {
+          callback(serverIDArray[x], arrayOfNames.slice());
+        }
+      } else {
+        console.log("There was an error reaching Picarto's API, error code: " + request.status);
+        createTimeoutRequest(true);//We want to delay the next call due to the error
+      }
+    };
     request.open("GET", APILink, false);
     request.send();
-    if (request.status == 200){
-      var reply = JSON.parse(request.responseText);
-      var arrayOfNames = [];
-      for(var i = 0; i < reply.length; i++){
-        arrayOfNames.push(reply[i].name);
-      }
-
-      for(var x = 0; x < serverIDArray.length; x++) {
-        callback(serverIDArray[x], arrayOfNames.slice());
-      }
-    } else {
-      console.log(request.status);
-    }
   }//End of try
   catch (error) {
     console.log(error);
