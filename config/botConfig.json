@@ -3,5 +3,5 @@
   "token" : ">__>",
   "refreshRate" : 45000,
   "replyTimeLimit" : 20000,
-  "endNotificationDelay" : 120000
+  "endNotificationDelay" : 30000
 }
